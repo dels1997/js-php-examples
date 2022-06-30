@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kolokviji</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.js"></script>
+</head>
+<body>
+
+    <canvas height="600" width="600" id="cnv" style="border: black solid 2px; float: left;"></canvas>
+
+    Prikaži raspored u učionici:
+    <select id="ucionice"></select>
+
+    </br></br>
+
+    <div id="ucenici"></div>
+   
+<script>
+$(document).ready(function() {
+
+    let ctx = $('#cnv').get(0).getContext('2d');
+    let w = $("#cnv").width();
+    let h = $("#cnv").height();
+    let poc = $('#cnv').get(0).getBoundingClientRect();
+
+    dohvati_i_popisi_ucionice();
+
+    $('#ucionice').on('change', function(e)
+    {
+        // console.log('disu');
+        let uc = $(this).val();
+        // console.log(uc);
+        dohvati_zauzeca(uc);
+        popisi_studente_u_ucionici(uc);
+    });
+
+    // https://stackoverflow.com/questions/13152927/how-to-use-radio-on-change-event
+    $('body').on('change click', '.r', function() {
+        let osoba = this.value;
+        console.log('disu' + osoba);
+        $.ajax(
+        {
+            url:'zadatak2.php',
+            data:
+            {
+                osoba: osoba,
+            },
+            type: "GET",
+            dataType: 'json',
+            success: function(data)
+            {
+                console.log(data);
+                oznaci_klupu(data['row'], data['col']);
+            },
+            error: function(xhr, status)
+            {
+                console.log("greška prilikom oznake klupe....");
+            }
+        });
+    });
+});
+
+function dohvati_i_popisi_ucionice()
+{
+    $.ajax(
+    {
+        url: 'zadatak2.php',
+        data:
+        {
+            ucionice: 1
+        },
+        type: "GET",
+        dataType: 'json',
+        success: function(data)
+        {
+            console.log(data);
+            dodaj_ucionice_u_select(data);
+        },
+        error: function()
+        {
+            console.log("greška prilikom dohvata učionica....");
+        }
+    });
+}
+
+function dodaj_ucionice_u_select(ucionice)
+{
+    let uc = $('#ucionice');
+    for(let i = 0; i < ucionice.length; ++i)
+    {
+        uc.append($('<option class="select" value="' + ucionice[i]['naziv'] + '">' + ucionice[i]['naziv'] + '</option>'));
+    }
+}
+
+function dodaj_studente_u_radio(studenti)
+{
+    let ucenici = $('#ucenici').html('');
+    for(let i = 0; i < studenti.length; ++i)
+    {
+        ucenici.append($('<input type="radio" name="ucenici" class="r" value="' + studenti[i] + '" id="' + studenti[i] + '">'));
+        ucenici.append($('<label for="' + studenti[i] + '">' + studenti[i] +'</label></br>'));
+        // ucenici.append($('<input type="radio" name="osoba" class="radio" value="' + studenti[i] + '">'));
+    }
+}
+
+function popisi_studente_u_ucionici(uc)
+{
+    $.ajax(
+    {
+        url:'zadatak2.php',
+        data:
+        {
+            ucionica: uc
+        },
+        type: "GET",
+        dataType: 'json',
+        success: function(data)
+        {
+            console.log(data);
+            dodaj_studente_u_radio(data);
+        },
+        error: function(xhr, status)
+        {
+            console.log("greška prilikom dohvata studenata u " + uc + " ....");
+        }
+    });
+}
+var zauzeca_return;
+function nacrtaj_ucionicu(uc, zauzeca)
+{
+    $.ajax(
+    {
+        url:'zadatak2.php',
+        data:
+        {
+            nacrtaj: uc
+        },
+        type: "GET",
+        dataType: 'json',
+        success: function(data)
+        {
+            console.log(data);
+            nacrtaj_klupe(data['nrows'], data['ncols'], zauzeca);
+        },
+        error: function(xhr, status)
+        {
+            console.log("greška prilikom dohvata podataka ucionice " + uc + " ....");
+        }
+    });
+}
+
+function dohvati_zauzeca(ucionica)
+{
+    var d;
+    $.ajax(
+    {
+        url:'zadatak2.php',
+        data:
+        {
+            zauzeca: ucionica
+        },
+        type: "GET",
+        dataType: 'json',
+        success: function(data)
+        {
+            console.log(data);
+            nacrtaj_ucionicu(ucionica, data);
+        },
+        error: function(xhr, status)
+        {
+            console.log("greška prilikom dohvata studenata u " + uc + " ....");
+        }
+    });
+    return d;
+}
+
+function nacrtaj_klupe(r, s, zauzeca)
+{
+    let ctx = $('#cnv').get(0).getContext('2d');
+    let w = $("#cnv").width();
+    let h = $("#cnv").height();
+    let poc = $('#cnv').get(0).getBoundingClientRect();
+    ctx.clearRect(0, 0, w, h);
+    ctx.fillStyle = '#aaaaaa';
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.save();
+    ctx.translate(50, 0);
+    for(let i = 0; i < r; ++i)
+    {
+        ctx.translate(0, 50);
+        ctx.save();
+        for(let j = 0; j < s; ++j)
+        {
+            let flag = 0;
+            for(let k = 0; k < zauzeca.length; ++k)
+            {
+                if((zauzeca[k][0] === i + 1) && (zauzeca[k][1] === j + 1))
+                {
+                    flag = 1;
+                    console.log(i);
+                    break;
+                }
+            }
+            if(flag)
+                ctx.fillRect(j * 20, i * 20, 40, 20);
+            else
+                ctx.strokeRect(j * 20, i * 20, 40, 20);
+            ctx.translate(50, 0);
+        }
+        ctx.restore();
+    }
+    ctx.restore();
+
+    ctx.stroke();
+}
+
+function oznaci_klupu(r, s)
+{
+    let ctx = $('#cnv').get(0).getContext('2d');
+    let w = $("#cnv").width();
+    let h = $("#cnv").height();
+    let poc = $('#cnv').get(0).getBoundingClientRect();
+
+    ctx.fillStyle = '#aa0000';
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.save();
+    ctx.translate(50, 0);
+
+    let x = (s - 1) * (40 + 50);
+    let y = (r - 1) * (20 + 50);
+
+    ctx.fillRect((s - 1) * (50 + 20), (r - 1) * (50 + 20) + 50, 40, 20);
+
+    ctx.moveTo((s - 1) * (50 + 20), (r - 1) * (50 + 20) + 50);
+    ctx.lineTo((s - 1) * (50 + 20) + 40, (r - 1) * (50 + 20) + 50 + 20);
+
+    ctx.moveTo((s - 1) * (50 + 20) + 40, (r - 1) * (50 + 20) + 50);
+    ctx.lineTo((s - 1) * (50 + 20), (r - 1) * (50 + 20) + 50 + 20);
+    
+    ctx.restore();
+
+    ctx.stroke();
+}
+
+function undo_oznaci_klupu(r, s)
+{
+    let ctx = $('#cnv').get(0).getContext('2d');
+    let w = $("#cnv").width();
+    let h = $("#cnv").height();
+    let poc = $('#cnv').get(0).getBoundingClientRect();
+
+    ctx.fillStyle = '#aaaaaa';
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.save();
+    ctx.translate(50, 0);
+
+    let x = (s - 1) * (40 + 50);
+    let y = (r - 1) * (20 + 50);
+
+    ctx.fillRect((s - 1) * (50 + 20), (r - 1) * (50 + 20) + 50, 40, 20);
+    ctx.restore();
+
+    ctx.stroke();
+}
+
+
+
+</script>
+</body>
+</html>

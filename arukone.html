@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="hr">
+<head>
+    <meta charset="utf8">
+    <title>arukone by dels</title>
+    <script src="https://rp2.studenti.math.hr/~zbujanov/dz3/puzzle.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.js"></script>
+</head>
+<body>
+    <select id="sel"></select>
+    <input type="button" id="btn" value="Start the game!"></br></br>
+<script>
+
+const colors = {'rgb(211, 211, 211)': 'lightgray', 'rgb(255, 0, 0)': 'red', 'rgb(0, 128, 0)': 'green', 'rgb(0, 0, 255)': 'blue', 'rgb(255, 255, 0)': 'yellow', 'rgb(255, 192, 203)': 'pink', 'rgb(255, 165, 0)': 'orange', 'rgb(128, 0, 128)': 'purple', 'rgb(0, 0, 0)': 'black', 'rgb(221, 160, 221)': 'plum' };
+
+function prepare_choice()
+{
+    for(let i = 0; i < puzzle.length; ++i)
+        $('#sel').append($('<option value="' + i +'">' + puzzle[i].name + '</option>'));
+}
+
+function which_color_it_was(rgb, game)
+{    
+    return colors[rgb];
+}
+
+// kako pametnije ovo razdvojit, jel moguce bez stalnog slanja puzzle (doduse mozda se salju samo reference jer su objekti)
+function handle_click_to_start_game(button, select, puzzle)
+{
+    $(document).on('click', button, function()
+    {
+        $('#field').remove();
+        $('#choice').remove();
+        $('#congrats').remove();
+
+        let game_index = $(select).find(":selected").val();
+        let game = puzzle[parseInt(game_index)];
+
+
+        let div = $('<div id="field">');
+        for(let i = 0; i < game.size; ++i)
+        {
+            for(let j = 0; j < game.size; ++j)
+            {
+                let btn = $('<button id="btn' + (i + 1) + '-' + (j + 1) + '">')
+                    .css('height', '70px')
+                    .css('width', '70px')
+                    .css('border', 'solid black 0.5px')
+                    .css('background-color', 'lightgray')
+                    .css('vertical-align', 'top');
+                btn.on('mousedown', function(event)
+                {
+                    let changed_color = null;
+                    if(event.button === 0)
+                    {
+                        changed_color = $("#choice input[type='radio']:checked").val();
+                        // ova usporedba bi trebala raditi svugdje osim na IE, što je u redu, tj. samo je detalj koji nije pretjerano bitan
+                        if($(this).css('background-color') === 'lightgray' || $(this).css('background-color') === 'rgb(211, 211, 211)')
+                            $(this).css('background-color', changed_color);
+                    }
+                    else if(event.button === 2)
+                    {
+                        changed_color = which_color_it_was($(this).css('background-color'), game);
+                        $(this).css('background-color', 'lightgray');
+                    }
+                    else return;
+                    
+                    if(BFS(puzzle, game_index, changed_color))
+                    {
+                        $('#label-' + changed_color).css('text-decoration', 'underline');
+                    }
+                    else
+                    {
+                        $('#label-' + changed_color).css('text-decoration', 'none');
+                    }
+
+                    let game_finished = true;
+                    for(let i = 0; i < game.color.length; ++i)
+                    {
+                        let fetch = $('#label-' + game.color[i]);
+                        if(!fetch.length || fetch.css('text-decoration').includes('none'))
+                        {
+                            game_finished = false;
+                        }
+                    }
+                    if(game_finished)
+                    {
+                        $('#field').remove();
+                        $('#choice').remove();
+                        $('body').append($('<p id="congrats">Congrats!</p>'));
+                    }                    
+                });
+                btn.on( "contextmenu", function() { return false; } );
+                div.append(btn);
+            }
+            div.append('</br>');
+        }
+        $('body').append(div);
+
+        for(let i = 0; i < game.color.length; ++i)
+        {
+            let btnA_selector = '#btn' + game.A_row[i] + '-' + game.A_col[i];
+            let btnB_selector = '#btn' + game.B_row[i] + '-' + game.B_col[i];
+            
+            $(btnA_selector).css('background-color', game.color[i]).html('X').prop('disabled', true).css('color', 'rgba(0, 0, 0, 1)');
+            $(btnB_selector).css('background-color', game.color[i]).html('X').prop('disabled', true).css('color', 'rgba(0, 0, 0, 1)');
+        }
+
+        div = $('<div id="choice">');
+        div.append($('<p>Pick the color:</p>').css('display', 'inline'));
+
+        for(let i = 0; i < game.color.length; ++i)
+        {
+            let option_radio = null;
+            if(i === 0)
+                option_radio = $('<input type="radio" name="color" class="rad" value="' + game.color[i] + '"' + 'id="' + game.color[i] +'" checked>');
+            else
+                option_radio = $('<input type="radio" name="color" class="rad" value="' + game.color[i] + '"' + 'id="' + game.color[i] +'">');
+
+            let option_label = $('<label id="label-' + game.color[i] + '" for="' + game.color[i] + '">' + game.color[i][0].toUpperCase() + game.color[i].substring(1) + '</label>');
+            div.append(option_radio);
+            div.append(option_label);
+        }
+        $('body').append(div);
+    });
+}
+
+function color_of(i, j)
+{
+    return $('#btn' + i + '-' + j).css('background-color');
+}
+
+function Includes(arr, subarr)
+{
+    for(let i = 0; i < arr.length; ++i)
+    {
+        if(arr[i][0] === subarr[0] && arr[i][1] === subarr[1])
+            return true;
+    }
+    return false;
+}
+
+// malo potpomognuto https://www.tutorialspoint.com/Breadth-first-search-traversal-in-Javascript
+// ali to je sve slično, od SPA smo već implementirali BFS milijun puta
+function BFS(puzzle, game_number, color)
+{
+    let game = puzzle[game_number];
+    let size = game.size;
+
+    let index = game.color.indexOf(color);
+
+    let start = [game.A_row[index], game.A_col[index]];
+    let end = [game.B_row[index], game.B_col[index]];
+
+    let visited = [];
+    visited.push(start);
+
+    let queue = [];
+    queue.push(start);
+
+    while(queue.length !== 0)
+    {
+        let current = queue.shift();
+        visited.push(current);
+        let current_i = current[0];
+        let current_j = current[1];
+        if((current_i + 1 <= size) && (color_of(current_i + 1, current_j) === color_of(current_i, current_j)) && !(Includes(visited, [current_i + 1, current_j])) && !(Includes(queue, [current_i + 1, current_j])))
+        {
+            queue.push([current_i + 1, current_j]);
+        }
+        if((current_i - 1 >= 1) && (color_of(current_i - 1, current_j) === color_of(current_i, current_j)) && !(Includes(visited, [current_i - 1, current_j])) && !(Includes(queue, [current_i - 1, current_j])))
+        {
+            queue.push([current_i - 1, current_j]);
+        }
+        if((current_j + 1 <= size) && (color_of(current_i, current_j + 1) === color_of(current_i, current_j)) && !(Includes(visited, [current_i, current_j + 1])) && !(Includes(queue, [current_i, current_j + 1])))
+        {
+            queue.push([current_i, current_j + 1]);
+        }
+        if((current_j - 1 >= 1) && (color_of(current_i, current_j - 1) === color_of(current_i, current_j)) && !(Includes(visited, [current_i, current_j - 1])) && !(Includes(queue, [current_i, current_j - 1])))
+        {
+            queue.push([current_i, current_j - 1]);
+        }
+        if(Includes(queue, end) || Includes(visited, end))
+            return true;
+    }
+    return false;
+}
+
+$(document).ready(function()
+{
+    prepare_choice();
+
+    handle_click_to_start_game('#btn', '#sel', puzzle);
+
+});
+
+</script>
+
+</body>
+</html>
